@@ -4,9 +4,9 @@
 
 **C-Minus Scanner Implementation**
 
-1. Implementation Method 1 : C code (scan.c) - ?쐁minus_cimpl??
+1. Implementation Method 1 : C code (scan.c) - "cminus_cimpl"
 - Recognize token by **DFA**
-1. Implementation Method 2 : Lex(Flex) (cminus.l) - ?쐁minus_lex??
+1. Implementation Method 2 : Lex(Flex) (cminus.l) - "cminus_lex"
 - Specify lexical patterns by **Regular expression**
 
 [Compilation method and environment]
