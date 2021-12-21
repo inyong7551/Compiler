@@ -1,0 +1,6 @@
+int scope (int a) {
+  if (a==1){
+    int a;
+    output(a);
+  }
+}

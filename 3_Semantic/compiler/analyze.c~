@@ -1,0 +1,184 @@
+/****************************************************/
+/* File: analyze.c                                  */
+/* Semantic analyzer implementation                 */
+/* for the TINY compiler                            */
+/* Compiler Construction: Principles and Practice   */
+/* Kenneth C. Louden                                */
+/****************************************************/
+
+#include "globals.h"
+#include "symtab.h"
+#include "analyze.h"
+
+/* Procedure traverse is a generic recursive 
+ * syntax tree traversal routine:
+ * it applies preProc in preorder and postProc 
+ * in postorder to tree pointed to by t
+ */
+static void traverse( TreeNode * t,
+               void (* preProc) (TreeNode *),
+               void (* postProc) (TreeNode *) )
+{ if (t != NULL)
+  { preProc(t);
+    { int i;
+      for (i=0; i < MAXCHILDREN; i++)
+        traverse(t->child[i],preProc,postProc);
+    }
+    postProc(t);
+    traverse(t->sibling,preProc,postProc);
+  }
+}
+
+/* nullProc is a do-nothing procedure to 
+ * generate preorder-only or postorder-only
+ * traversals from traverse
+ */
+static void nullProc(TreeNode * t)
+{ if (t==NULL) return;
+  else return;
+}
+
+/* flushProc is a pop procedure to
+ * stack when compound statement node
+ * is done
+ */
+static void flushProc(TreeNode * t)
+{ switch (t->nodekind)
+  { case StmtK:
+      switch (t->kind.stmt)
+      case CompoundK:
+	st_pop();
+	popLoc();
+	break;
+      break;
+   }
+}
+
+/* Procedure insertNode inserts 
+ * identifiers stored in t into 
+ * the symbol table 
+ */
+static void insertNode( TreeNode * t)
+{ switch (t->nodekind)
+  { case DecK:
+      switch (t->kind.dec)
+      { case FunK:
+	  if (st_lookup(t->attr.name) == -1)
+	  { //printf("Function Dec : %s\n",t->attr.name);
+	    st_insert(t->attr.name,t->type,t->lineno,addLoc());
+	    st_newScope(t->attr.name);
+	  }
+	  else
+	    scopeError(t, "Already Defined Function");
+	  break;
+	case VarK:
+	  if (st_lookup(t->attr.name) == -1)
+          { //printf("Variable Dec : %s\n",t->attr.name);
+	    st_insert(t->attr.name,t->type,t->lineno,addLoc());
+	  }
+	  else
+	    scopeError(t, "Already Defined Variable");
+	  break;
+      }
+      break;
+    case StmtK:
+      switch (t->kind.stmt)
+      { case CallK:
+	case VariableK:
+	  if(st_lookup(t->attr.name) == -1)
+	    scopeError(t, "Not Defined Symbol"); 
+	  else
+	    addLine(t->attr.name,t->lineno);
+	  break;
+	case CompoundK:
+	{ //printf("CompoundK\n");
+	  ScopeList t = st_get_top();  
+	  if(t->depth > 1)
+	    st_newScope(t->name);
+          break;
+	}
+      }
+      break;
+    case ParamK:
+      if(t->type == Integer)
+      { st_insert(t->attr.name,t->type,t->lineno,addLoc());
+        //printf("Parameter Declaration : %s\n", t->attr.name);
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+/* Function buildSymtab constructs the symbol 
+ * table by preorder traversal of the syntax tree
+ */
+void buildSymtab(TreeNode * syntaxTree)
+{ st_init();
+  traverse(syntaxTree,insertNode,flushProc);
+  if (TraceAnalyze)
+  { fprintf(listing,"\nSymbol table:\n\n");
+    printSymTab(listing);
+  }
+}
+
+static void scopeError(TreeNode * t, char * message)
+{ fprintf(listing, "Scope error at line %d: %s\n",t->lineno,message);
+  Error = TRUE;
+}
+
+static void typeError(TreeNode * t, char * message)
+{ fprintf(listing,"Type error at line %d: %s\n",t->lineno,message);
+  Error = TRUE;
+}
+
+/* Procedure checkNode performs
+ * type checking at a single tree node
+ */
+static void checkNode(TreeNode * t)
+{ switch (t->nodekind)
+  { case ExpK:
+      switch (t->kind.exp)
+      { case AssignK:
+	  if(t->child[1]->type != Integer)
+	    typeError(t, "assignment of non-integer value");
+	  else
+ 	    t->type = t->child[0]->type;
+	  break;
+	case OpK:
+          if ((t->child[0]->type != Integer) ||
+              (t->child[1]->type != Integer))
+            typeError(t,"Op applied to non-integer");
+          t->type = Integer;
+          break;
+        default:
+          break;
+      }
+      break;
+    case StmtK:
+      switch (t->kind.stmt)
+      { case IfK:
+	case IfelseK:
+          if (t->child[0]->type == Void)
+            typeError(t->child[0],"if test is void");
+          break;
+        case WhileK:
+          if (t->child[0]->type == Void)
+            typeError(t->child[1],"while test is void");
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+
+  }
+}
+
+/* Procedure typeCheck performs type checking 
+ * by a postorder syntax tree traversal
+ */
+void typeCheck(TreeNode * syntaxTree)
+{ traverse(syntaxTree,nullProc,checkNode);
+}

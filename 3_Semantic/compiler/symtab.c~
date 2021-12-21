@@ -1,0 +1,141 @@
+/****************************************************/
+/* File: symtab.c                                   */
+/* Symbol table implementation for the TINY compiler*/
+/* (allows only one symbol table)                   */
+/* Symbol table is implemented as a chained         */
+/* hash table                                       */
+/* Compiler Construction: Principles and Practice   */
+/* Kenneth C. Louden                                */
+/****************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "symtab.h"
+#include "globals.h"
+
+#define SIZE 211
+
+/* SHIFT is the power of two used as multiplier
+   in hash function  */
+#define SHIFT 4
+
+static Scope scope[SIZE];
+static int num = 0;
+
+/* the hash function */
+static int hash ( char * key )
+{ int temp = 0;
+  int i = 0;
+  while (key[i] != '\0')
+  { temp = ((temp << SHIFT) + key[i]) % SIZE;
+    ++i;
+  }
+  return temp;
+}
+
+/* Procedure st_insert inserts line numbers and
+ * memory locations into the symbol table
+ * loc = memory location is inserted only the
+ * first time, otherwise ignored
+ */
+void st_insert( char * scope, char * name, SymKind kind, ExpType type, int lineno, int loc )
+{ int h = hash(scope);
+  ScopeList s =  hashTable[h];
+  printf("index : %d, s : %d\n", h, s);
+  if(s == NULL)
+  { s = (ScopeList) malloc(sizeof(struct ScopeListRec));
+    s->name = name;
+    if(strcmp(scope,"global") != 0)
+      s->parent = hashTable[hash("global")];
+    printf("s : %d\n", s);
+    st_insert(scope,name,kind,type,lineno,loc); }
+  else
+  { BucketList b = s->symbol;
+    while((b != NULL) && (strcmp(name,b->name) != 0))
+      b = b->next;
+
+    if(b == NULL)
+    { b = (BucketList) malloc(sizeof(struct BucketListRec));
+      b->name = name;
+      b->kind = kind;
+      b->type = type;
+      b->lines = (LineList) malloc(sizeof(struct LineListRec));
+      b->lines->lineno = lineno;
+      b->lines->next = NULL; }
+    else
+    { LineList l = b->lines;
+      while (l->next != NULL) l = l->next;
+      l->next = (LineList) malloc(sizeof(struct LineListRec));
+      l->next->lineno = lineno;
+      l->next->next = NULL; }
+  }
+} /* st_insert */
+
+/* Function st_lookup returns the memory 
+ * location of a variable or -1 if not found
+ */
+BucketList st_lookup ( char * scope, char * name )
+{ int h = hash(scope);
+  ScopeList s = hashTable[h];
+  BucketList b = st_lookup_excluding_parent(scope,name);
+  while((s != NULL) && b == -1)
+  { s = s->parent;
+    b = st_lookup_excluding_parent(scope,name);
+  }
+  if(s == NULL) return -1;
+  else return b;
+}
+
+BucketList st_lookup_excluding_parent ( char * scope, char * name )
+{ int h = hash(scope);
+  BucketList b = hashTable[h]->symbol;
+  while((b != NULL) && (strcmp(scope,b->name) != 0))
+    b = b->next;
+  if(b == NULL) return -1;
+  else return b;
+}
+
+/* Procedure printSymTab prints a formatted 
+ * listing of the symbol table contents 
+ * to the listing file
+ */
+void printSymTab(FILE * listing)
+{ int i;
+  fprintf(listing,"Symbol Name  Symbol Kind  Symbol Type  Scope Name  Location  Line Numbers\n");
+  fprintf(listing,"-----------  -----------  -----------  ----------  --------  ------------\n");
+  for (i=0;i<SIZE;++i)
+  { if (hashTable[i] != NULL)
+    { ScopeList s = hashTable[i];
+      while (s != NULL)
+      { BucketList b = s->symbol;
+	LineList l = b->lines;
+        fprintf(listing,"%-12s ",b->name);
+	switch(b->kind)
+	{ case Fun:
+	    fprintf(listing,"%-12s ","Function");
+	    break;
+	  default:
+	    fprintf(listing,"%-12s ","Variable");
+	    break; }
+	switch(b->type)
+	{ case Integer:
+	    fprintf(listing,"%-12s ","int");
+	    break;
+	  case Void:
+	    fprintf(listing,"%-12s ","void");
+	    break;
+	  default:
+	    fprintf(listing,"%-12s ","int[]");
+	    break; }
+	fprintf(listing,"%-11s ",s->name);
+        fprintf(listing,"%-8d  ",b->memloc);
+        while (l != NULL)
+        { fprintf(listing,"%4d ",l->lineno);
+          l = l->next;
+        }
+        fprintf(listing,"\n");
+      }
+    }
+  }
+} /* printSymTab */
