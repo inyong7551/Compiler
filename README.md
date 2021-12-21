@@ -21,7 +21,7 @@ VirtualBox Linux : Ubuntu 18.04
 ```c
 typedef enum
 	{START, INCOMMENT, INCOMPARE, INNUM, INID, DONE}
-	StateType;i
+	StateType;
 ```
 
 ```c
@@ -78,7 +78,7 @@ Tiny.l 을 수정하여 C-Minus Convention에 대한 Lexical Analyzer를 구현�
 	  } while (c != "*" || input() != '/');
          }
 ```
-
+</br></br></br></br>
 # [Project 2 Parser]
 
 **C-Minus Parser Implementation**
@@ -129,6 +129,8 @@ Token과 그에 따른 Priority와 Associativity는 다음과 같이 정의했�
 **ID, Type, Operator에 대한** 정보를 저장하기 위해 하위 Node를 새로 설정하고 Reduce시, 정보만 상위 Node에 저장하고 Free 함수를 통해 메모리를 비우게 하였다.
 
 자세한 내용은 코드 참조.
+
+</br></br></br></br>
 
 # [Project 3 Semantic Analyzer]
 
